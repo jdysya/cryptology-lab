@@ -1,0 +1,426 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <link rel="stylesheet" href="index.css">
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DES加密及对应解密</title>
+</head>
+<body>
+<div id='app'>
+    <el-container>
+        <el-main>
+            <el-row type="flex" class="row-bg" justify="center" style="margin-top: 60px">
+                <el-col :span="18">
+                    <div class="grid-content">
+                        <el-button type="primary" round>DES</el-button>
+                        <el-divider direction="vertical"></el-divider>
+                        <span>DES加密以及解密</span>
+                    </div>
+                    <el-divider></el-divider>
+                </el-col>
+            </el-row>
+            <el-row type="flex" class="row-bg" justify="center" :gutter="20">
+                <el-col :span="6">
+                    <el-card shadow="hover">
+                        <div slot="header" class="clearfix">
+                            <span>请先阅读</span>
+                        </div>
+                        <el-collapse accordion>
+
+                            <el-collapse-item title="哈希加密" name="1">
+                                <div>提供DES算法的加密以及解密</div>
+                            </el-collapse-item>
+
+                            <el-collapse-item title="字符加密" name="5">
+                                <div>若加密的结果中存在乱码，则请换一个密钥进行加密，否则会造成无法解密的结果(可通过将密文解密看结果是否正确来确定密钥是否合理)</div>
+                            </el-collapse-item>
+
+                            <el-collapse-item title="文件加密" name="5">
+                                <div>该加密方式支持任意文件类型的加密，但建议文件大小不要过大，最好在2MB之内，否则容易造成卡死的现象！</div>
+                            </el-collapse-item>
+
+                            <el-collapse-item title="关于作者" name="5">
+                                <div>jdysya</div>
+                            </el-collapse-item>
+
+                        </el-collapse>
+                    </el-card>
+                </el-col>
+
+                <el-col :span="12">
+
+                    <el-tabs v-model="activeName" type="card" @tab-click="handleClick">
+                        <el-tab-pane label="字符处理" name="first">
+                            <el-card shadow="hover">
+                                <el-input v-model="message" placeholder="请输入明文/密文" style="width: 300px"></el-input>
+                                <div class="box"></div>
+
+                                <div class="box"></div>
+                                <el-input
+                                        type="textarea"
+                                        autosize
+                                        placeholder="请输入密钥"
+                                        style="width: 300px"
+                                        v-model="key">
+                                </el-input>
+                                <div class="box"></div>
+                                <el-button @click="encrypt">加密</el-button>
+                                <el-button @click="decode">解密</el-button>
+                            </el-card>
+                            <div class="box"></div>
+                            <el-card shadow="hover">
+                                <div>
+                                    结果:
+                                    <el-tag>{{resultText}}</el-tag>
+                                </div>
+                            </el-card>
+                        </el-tab-pane>
+                        <el-tab-pane label="文件处理" name="second">
+                            <el-card shadow="hover">
+                                <el-upload
+                                        v-loading="loading"
+                                        ref="upload"
+                                        class="upload-demo"
+                                        drag
+                                        action=""
+                                        :file-list = "filelist"
+                                        :auto-upload = "false"
+                                        :before-upload = "beforeUpload"
+                                        :on-change = "onChange">
+                                    <i class="el-icon-upload"></i>
+                                    <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+                                </el-upload>
+                                <div class="box"></div>
+                                <div class="box"></div>
+                                <el-input
+                                        type="textarea"
+                                        autosize
+                                        placeholder="请输入密钥"
+                                        style="width: 300px"
+                                        v-model="key">
+                                </el-input>
+                                <div class="box"></div>
+                                <el-button @click="encrypt">加密</el-button>
+                                <el-button @click="decode">解密</el-button>
+                            </el-card>
+
+
+                        </el-tab-pane>
+                    </el-tabs>
+                    <div class="box"></div>
+
+
+
+                </el-col>
+
+            </el-row>
+        </el-main>
+    </el-container>
+</div>
+
+<script src="./vue.js"></script>
+<script src="./index.js"></script>
+<script src="./data.js"></script>
+</body>
+
+<script>
+    const app =  new Vue({
+        el: '#app',
+        data: {
+            activeName: 'first',
+            message: '',
+            key: '',
+            resultText: '',
+            fileText:'',//二进制文件信息
+            fileType:'',//文件类型
+            fileName:'',//文件名称,
+            filelist:[],
+            loading:false
+        },
+        methods: {
+            handleClick(tab, event) {
+                console.log(tab, event)
+                console.log(this.activeName)
+            },
+            onChange(file, fileList){
+                console.log('状态改变')
+                this.filelist = [file]
+                this.$refs.upload.submit()
+                this.$message({
+                    message: '文件读取完毕',
+                    type: 'success'
+                });
+            },
+            beforeUpload(file){
+                this.loading = true
+                console.log(file)
+                if (file.size/1024/1024 >= 2.5){
+                    this.$alert('校测到当前文件过大，可能造成较长时间的等待', '文件过大', {
+                        confirmButtonText: '确定',
+                        callback: action => {
+                            this.$message({
+                                type: 'info',
+                                message: `点击加密进行下一步操作`
+                            });
+                        }
+                    });
+                }
+                let reader = new FileReader()
+                this.fileType = file.type
+                this.fileName = file.name
+                let str_process = '' //用于保存各字节的8位二进制,参与后续的加密过程
+                let that = this //改变this指向，才能在函数中调用其他methods以及改变data中的属性值
+                reader.readAsArrayBuffer(file)
+                reader.onload = function (e) {
+                    console.log('文件内容')
+                    console.log(e.target.result)
+                    let view = new DataView(e.target.result)
+                    let len = view.byteLength //获取初始字节长度
+                    //八字节为一组，参与DES加密
+                    for (let i = 0; i < view.byteLength;i++){
+                        let temp = view.getUint8(i).toString(2)
+                        if (temp.length < 8) temp = '0'.repeat(8-temp.length) + temp
+                        str_process += temp
+                    }
+                    that.fileText = str_process
+                    console.log('before end')
+                    that.loading = false
+                }
+            },
+            encrypt(){
+                console.log(this.loading)
+                if(this.activeName == 'first'){
+                    let process = this.toText(this.message) //用于获取二进制明文
+                    let afterText = this.calCore('en',process) //加密
+                    this.resultText = this.toMessage(afterText)
+                }
+                else{
+                    console.log(this.fileText)
+                    let mod = this.fileText.length % 64
+                    let addNum = 0
+                    if(mod != 0) addNum = (64-mod) / 8 //增加的位数
+                    console.log('增加的位数：',addNum)
+                    let res = this.calCore('en',this.fileText)
+                    console.log('加密完res长度为：',res.length)
+                    let numtTo = addNum.toString(2)
+                    res += '0'.repeat(8-numtTo.length)+numtTo //将增加的位数附加在末尾
+                    console.log('增加附加位数后res位数为',res.length)
+                    this.toFile(res,'en')
+                }
+                this.loading = false
+            },
+            toFile(text,type){
+                //以下是转文件的过程
+                let len = text.length / 8 //获取长度
+                console.log(len)
+                let buffer = new ArrayBuffer(len);
+                let arr = new Uint8Array(buffer);
+                for (let i = 0;i<len;i++){
+                    arr[i] = parseInt(text.substr(i*8,8),2)
+                }
+                console.log(buffer)
+                let data = new Blob([arr],{type:this.fileType});
+                let downloadUrl = window.URL.createObjectURL(data);
+                let anchor = document.createElement("a");
+                anchor.href = downloadUrl;
+                let ls_name = this.fileName.split('.')
+                if (type == 'en'){
+                    anchor.download = ls_name[0]+'.(加密).'+this.fileName.split('.')[ls_name.length-1];
+                }
+                else{
+                    anchor.download = ls_name[0]+'.(解密).'+this.fileName.split('.')[ls_name.length-1];
+                }
+                anchor.click();
+                window.URL.revokeObjectURL(data);
+            },
+            calCore(type,process) {
+                let mod = process.length % 64 //求余,最后一组不足64位用0补齐
+                let ls_key = this.getKey() //获取各轮的密钥
+                if(type == 'de') ls_key.reverse()//解密过程只需16轮密钥逆序即可
+                let afterText = '' //用于存储加密后的二进制密文
+                console.log('补齐前：', process.length)
+                if(mod != 0) process = process + '0'.repeat(64 - mod) //补齐
+                console.log('补齐后：', process.length)
+                let groupCount = process.length / 64//64位一组，获取组数
+                for (let i = 1; i <= groupCount; i++) {
+                    let presentMessage = process.slice((i-1)*64,i*64)
+                    //明文进行初始置换
+                    let processText = this.textChange(presentMessage,nessData.initalSwap)
+                    //每一组分为左右两部分进行，需进行十六轮
+                    //左半部分
+                    let lstr = processText.slice(0,32)
+                    //右半部分
+                    let rstr = processText.slice(32,64)
+                    let old_lstr = ''
+                    for (let j = 0; j < 16; j++) {
+                        old_lstr = lstr //保存上一轮结果
+                        lstr = rstr //左边直接等于上一轮右边的结果
+                        rstr = this.textChange(rstr,nessData.exposeCal) //将32位扩展为48位
+                        let r_res = this.xorCal(rstr,ls_key[j]) //与48位密钥进行异或运算
+                        //通过S盒将48位结果压缩为32位
+                        //48位分为8组，每组6位
+                        let s_res = ''
+                        for (let k = 0; k < 8; k++) {
+                            let presentText = r_res.substr(k*6,6) //获取当前组的字符串内容
+                            presentText = this.sChange(presentText,k)
+                            s_res += presentText
+                        }
+                        s_res = this.textChange(s_res,nessData.p) //根据P矩阵再次进行结果的置换
+                        rstr = this.xorCal(old_lstr,s_res) //某一轮处理后右边的结果,是与上一轮的lstr异或！！
+                    }
+                    let result = rstr+lstr //左右交换位置
+                    result = this.textChange(result,nessData.initalInverse)//进行逆置换，得到密文
+                    afterText += result
+                }
+                return afterText;
+
+            },
+            //S盒操作，用于将六位输入转换为四位输出
+            sChange(text,group){
+                let matrix = nessData.sBox[group] // 获取对应S盒的矩阵
+                let row = parseInt((text[0]+text[5]),2) //首位和末尾组合后转换为对应的十进制作为行号
+                let column = parseInt(text.substr(1,4),2) //中间四位转化为十进制作为列号
+                let s_res = matrix[row][column].toString(2) //获取对应的十进制后再将其转为二进制
+                //由于要求输出应当为四位二进制数，故不足的应当在其前补零
+                if( s_res.length < 4){
+                    // s_res += '0'.repeat(4-s_res.length)
+                    s_res = '0'.repeat(4-s_res.length) + s_res
+                }
+                return s_res
+            },
+            //用于将二进制密文转换为字符串的形式
+            toMessage(text){
+                let group = text.length/16 //16位对应一个字符
+                let res = ''
+                for (let i = 0; i < group; i++) {
+                    let sub_str = text.substr(i*16,16)
+                    res += String.fromCharCode(parseInt(sub_str,2))
+                }
+                return res;
+            },
+            //将明文转成对应的二进制（16位）,因为包括中文的加密，故一个字符统一采用16位
+            toText(message) {
+                let text = '' //用于存储后续的二进制明文
+                for (let i = 0; i < message.length; i++) {
+                    let temp = message.charCodeAt(i).toString(2)//单个字符二进制化
+                    if (temp.length < 16) {
+                        //前方补0，补足16位
+                        let gap = 16 - temp.length //差的位数
+                        temp = '0'.repeat(gap) + temp;
+                    }
+                    text += temp
+                }
+                return text
+            },
+            //获取16轮每一轮的密钥
+            getKey() {
+                let key = this.key //获取输入的密钥
+                console.log('当前的密钥为',key)
+                let text = this.toText(key) //将密钥转化为二进制
+                console.log('当前的密钥为',text)
+                let ls_key = [] //用于存储16轮的密钥
+                if (text.length < 56) {
+                    //不足56位补充至56位
+                    text = text + '0'.repeat(56 - text.length)
+                } else {
+                    //超过56位只取前56位
+                    text = text.slice(0, 56)
+                }
+                console.log('处理后密钥为：',text)
+                //需要将56位分为两组，每组28位
+                let lkey = text.slice(0, 28)
+                let rkey = text.slice(28, 56)
+                for (let i = 0; i < 16; i++) {
+                    //每一组都需要进行循环移位
+                    lkey = this.circleMove(i, lkey)
+                    rkey = this.circleMove(i, rkey)
+                    //移位后将左右拼接在一起
+                    let key_res = lkey + rkey
+                    //再根据PC2将56位密钥转化为48位
+                    key_res = this.textChange(key_res, nessData.pc_2)
+                    ls_key.push(key_res) //将每一轮密钥结果都存入数组进行保存，方便后续使用
+                }
+                return ls_key
+            },
+            //用于根据矩阵将给定的字符串进行移位处理
+            textChange(text, matrix) {
+                let res = '' //用于返回结果
+                for (let i = 0; i < matrix.length; i++) {
+                    for (let j = 0; j < matrix[0].length; j++) {
+                        res += text[matrix[i][j]-1]
+                    }
+                }
+                return res;
+            },
+            //进行逐位异或运算
+            xorCal(text1,text2){
+                let len = text1.length  //获取长度
+                let res = ''
+                for(let i = 0; i < len ; i++){
+                    res += text1[i] ^ text2[i]
+                }
+                return res;
+            },
+            //循环移位
+            circleMove(index, key) {
+                let times = nessData.ls[index] //获取该轮变换的循环移位位数
+                let text = key.substr(times, key.length - times) + key.slice(0, times)
+                return text
+            },
+            //解密
+            decode() {
+                if(this.activeName == 'first'){
+                    let process = this.toText(this.message) //用于获取二进制密文
+                    let afterText = this.calCore('de',process)
+                    this.resultText = this.toMessage(afterText)
+                }
+                else{
+                    let len = this.fileText.length
+                    console.log('总长为：',len)
+                    let addnum = parseInt(this.fileText.substr(len-8,8),2) //取最后一个得到位数
+                    console.log('增加的位数：',addnum)
+                    let res = this.calCore('de',this.fileText.substr(0,len-8))//不包括最后八位
+                    console.log('res长度为：',res.length)
+                    this.toFile(res.substr(0,res.length-addnum*8),'de')//不包括增加的位数
+                }
+
+            },
+        },
+        mounted(){
+            let ls_test = [
+                [1,3,5,7,9],
+                [2,4,6,8,10],
+                [1,2,3,4,5]
+            ]
+            ls_test.reverse()
+            console.log(ls_test)
+
+
+
+        }
+    })
+
+</script>
+<style>
+    .box {
+        height: 10px;
+    }
+
+    body {
+        transform: scale(1.2);
+    }
+    #master {
+
+        position:absolute;
+
+        left:50%;
+
+        bottom:0;
+
+        text-align :center;
+
+    }
+</style>
+</html>

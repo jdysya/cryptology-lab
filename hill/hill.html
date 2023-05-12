@@ -1,0 +1,202 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+ <div id ='app'>
+     <el-row type="flex" class="row-bg" justify="center" style="margin-top: 60px">
+         <el-col :span="18">
+             <div class="grid-content">
+                 <el-button type="primary" round >哈希算法</el-button>
+                 <el-divider direction="vertical"></el-divider>
+                 <span>哈希加密以及解密</span>
+             </div>
+             <el-divider></el-divider>
+         </el-col>
+     </el-row>
+     <el-row type="flex" class="row-bg" justify="center" :gutter="20">
+         <el-col :span="6">
+             <el-card shadow="hover" >
+                 <div slot="header" class="clearfix">
+                     <span>请先阅读</span>
+                 </div>
+                 <el-collapse accordion>
+                     <el-collapse-item title="哈希加密" name="1">
+                         <div>提供哈希算法的加密以及解密</div>
+                     </el-collapse-item>
+                     <el-collapse-item title="明文规范" name="2">
+                         <div>要求明文各单词间用一个空格分隔（注意是一个空格），或者不要空格，并且各字母总长度（不包括空格）应当是您输入的密钥的维度的倍数，这样能保证正好分组完全，若长度不够，建议在末尾添加无关字符</div>
+                     </el-collapse-item>
+                     <el-collapse-item title="密文" name="3">
+                         <div>密文之间不要用空格分隔，因为会将空格计算在内</div>
+                     </el-collapse-item>
+                     <el-collapse-item title="密钥规范" name="4">
+                         <div>要求密钥必须是一个n阶方阵，且其行列式的值不为零，并且与26互质，输入时每列之间用单空格分隔，每行之间用换行符分隔（即按回车键一次），注意，最后一行无需换行！</div>
+                     </el-collapse-item>
+                     <el-collapse-item title="关于作者" name="5">
+                         <div>jdysya</div>
+                     </el-collapse-item>
+                 </el-collapse>
+             </el-card>
+         </el-col>
+
+         <el-col :span="12">
+             <div style="display: inline">
+                 <div class="subtitle" >
+                     <i class="el-icon-medal"></i>
+                     Hill
+                 </div>
+             </div>
+             <div class="box"></div>
+             <el-card shadow="hover">
+                 <el-input v-model="message" placeholder="请输入明文/密文" style="width: 300px"></el-input>
+                 <div class="box"></div>
+                 <el-input
+                         type="textarea"
+                         autosize
+                         placeholder="请输入密钥"
+                         style="width: 300px"
+                         v-model="key">
+                 </el-input>
+                 <div class="box"></div>
+                 <el-button @click="encrypt">加密</el-button>
+                 <el-button @click="decode">解密</el-button>
+             </el-card>
+             <div class="box"></div>
+             <el-card shadow="hover">
+                 <div>
+                     结果: <el-tag>{{resultText}}</el-tag>
+                 </div>
+             </el-card>
+
+
+         </el-col>
+
+     </el-row>
+
+ </div>
+ <script src="./vue.js"></script>
+ <script src="./math.min.js"></script>
+<script src="./index.js"></script>
+</body>
+
+<script>
+  new Vue({
+      el:'#app',
+      data:{
+          message:'',
+          key:'',
+          resultText:''
+      },
+      methods:{
+          encrypt() {
+              let  key = this.key.split('\n') //获取密钥
+              let message = this.message.split(' ').join('')//获取明文,应当以单空格分隔
+              console.log(message)
+              let dimension = key.length //获取密钥维度
+              let ls_key = this.getKey()
+              let detValue = math.det(ls_key) //计算行列式的值
+              let retres =this.isKeyRational(detValue,message,dimension)
+              if(retres == 3){
+                  console.log('输入合理')
+                  this.resultText = this.calCore(message,ls_key,dimension)
+                  console.log(this.resultText)
+              }
+              else if (retres == 2){
+                  this.$message.error('输入明文不合理,其长度应当恰好为密钥维度的倍数,请在末尾补充多余字符,当前长度为：'+message.length)
+              }
+              else if (retres == 1){
+                  this.$message.error('输入的密钥不合理,当前密钥的行列式的值为'+detValue)
+              }
+              else{
+                  this.$message.error('输入不规范，请仔细检查是否正确!')
+              }
+          },
+          getKey(){
+              let  key = this.key.split('\n') //获取密钥
+              let ls_key = []
+              let dimension = key.length //获取密钥维度
+              //双重循环将输入的密钥转化为二维数组
+              for(let i = 0; i < dimension; i++){
+                  let ls_temp = []
+                  for(let j = 0; j < dimension; j++){
+                      ls_temp.push(Number.parseInt(key[i].split(' ')[j]))
+                  }
+                  ls_key.push(ls_temp)
+              }
+              return ls_key
+          },
+          //加密核心代码
+          calCore(message,ls_key,dimension){
+              let count = 0
+              ls_cal = [] //用于要计算的某一组
+              ls_res = []
+              for (x in message){
+                  let ls_temp = [message.charCodeAt(x)-97] //字母a对应下标为0
+                  ls_cal.push(ls_temp)
+                  count++
+                  if( count == dimension ){
+                      let res = math.multiply(ls_key,ls_cal)
+                      ls_res.push(math.mod(res,26)) //计算结果对26取余
+                      count = 0
+                      ls_cal = []
+                  }
+              }
+              console.log(ls_res)
+              let result = ''
+              for (x in ls_res){
+                  for (y in ls_res[x]){
+                      result += String.fromCharCode(ls_res[x][y][0]+97)
+                  }
+              }
+              return result
+          },
+          //判断密钥是否合理
+          isKeyRational(value,message,dimension){
+              if (value == 0) return 1//若为零，则不存在逆矩阵
+              if (math.gcd(value,26) != 1) return 1//同时要求与与26互质
+              if (message.length % dimension != 0) return 2 //应当恰好分组，否则会有信息丢失
+              if (message = '' || this.key == '') return 4 //没有输入
+              return 3
+          },
+          //解密
+          decode(){
+              let  key = this.key.split('\n') //获取密钥
+              let ciphertext = this.message //获取密文，密文没有空格，故解密后结果也没空格
+              let ls_key = this.getKey() //获取密钥矩阵
+              let dimension = key.length //获取密钥维度
+              let inverse = math.inv(ls_key)//对应的逆矩阵
+              let resdet = math.abs(math.det(ls_key)) //对应的行列式的绝对值
+              let invnum = 0 //初始化逆元
+              console.log(ls_key)
+              //求对应的逆元
+              let i = 1
+              while (true){
+                  invnum = (26*i+1)/resdet
+                  if ( Number.isInteger(invnum)){
+                      console.log('逆元为:'+invnum)
+                      console.log(i)
+                      break
+                  }
+                  i++
+              }
+              let martix = math.multiply(inverse,resdet*invnum) // 对应的伴随矩阵乘上逆元
+              let res = math.round(math.mod(martix,26)) //对26取模后取整
+              console.log('对应的逆矩阵为')
+              console.log(res)
+              this.resultText = this.calCore(ciphertext,res,dimension)
+          },
+      }
+  })
+
+</script>
+<style>
+    .box{
+        height: 10px;
+    }
+    body{
+        transform: scale(1.2);
+    }
+</style>
+</html>
